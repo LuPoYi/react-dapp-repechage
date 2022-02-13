@@ -10,7 +10,7 @@ import Box from '@mui/material/Box'
 import Navbar from './components/Navbar'
 import Wallet from './components/Body/Wallet'
 import EthForm from './components/Body/EthForm'
-import Erc20Form from './components/Body/Erc20Form'
+import TokenForm from './components/Body/TokenForm'
 import History from './components/Body/History'
 import erc20Abi from './abi/erc20'
 import { daiContract } from './constants/env'
@@ -20,8 +20,8 @@ function App() {
   const [amount, setAmount] = useState('')
   const [balance, setBalance] = useState(0)
   const [signer, setSigner] = useState()
-  const [erc20Contract, setErc20Contract] = useState()
-  const [erc20State, setErc20State] = useState({
+  const [tokenContract, setTokenContract] = useState()
+  const [TokenState, setTokenState] = useState({
     tokenAddress: daiContract,
     symbol: '',
     balance: '',
@@ -31,8 +31,46 @@ function App() {
     message: '',
   })
   const [tabValue, setTabValue] = useState(0)
-
+  const [histories, setHistories] = useState([])
   const { active, account, library, chainId, activate, deactivate } = useWeb3React()
+
+  const fetchHistory = async () => {
+    const etherscanProvider = new ethers.providers.EtherscanProvider('ropsten')
+    const rawHistories = await etherscanProvider.getHistory(account)
+    const processedHistories = rawHistories
+      .reverse()
+      .map(({ hash, from, to, timestamp, value, data }) => {
+        // decode daiContract value
+        let tokenValue = 0
+        let tokenName = ''
+        if (to === daiContract && data !== '0x') {
+          try {
+            const decodeContractData = ethers.utils.defaultAbiCoder.decode(
+              ['address', 'uint256'],
+              ethers.utils.hexDataSlice(data, 4)
+            )
+            to = decodeContractData[0]
+            tokenValue = decodeContractData[1]
+            tokenName = 'DAI'
+          } catch (ex) {
+            console.log(ex)
+          }
+        }
+
+        return {
+          txid: hash,
+          from,
+          to,
+          date: new Date(timestamp * 1000).toLocaleString('zh-TW'),
+          value: ethers.utils.formatEther(value),
+          tokenValue: tokenValue && ethers.utils.formatEther(tokenValue),
+          tokenName: tokenName,
+          isConfirmed: true,
+        }
+      })
+
+    setHistories(processedHistories)
+  }
 
   const handleConnectWalletOnClick = (connector) => async () => {
     try {
@@ -51,82 +89,116 @@ function App() {
   }
 
   const handleSendEthOnClick = (address, amount) => async () => {
-    signer
-      .sendTransaction({
+    const value = ethers.utils.parseEther(amount)
+    try {
+      // sending transaction
+      const tx = await signer.sendTransaction({
         to: address,
-        value: ethers.utils.parseEther(amount),
+        value: value,
       })
-      .then(({ hash }) => {
-        setSnackbarState({ open: true, message: `Transaction sent. TXID: ${hash}` })
-        setAmount('')
-      })
-      .catch((error) => {
-        console.log('sendTransaction error', error)
-        setSnackbarState({ open: true, message: error?.message })
-      })
+      setSnackbarState({ open: true, message: `Transaction sent. TXID: ${tx.hash}` })
+      setAmount('')
+      setHistories([
+        {
+          date: new Date().toLocaleString('zh-TW'),
+          txid: tx.hash,
+          from: account,
+          to: address,
+          value: amount,
+          isConfirmed: false,
+        },
+        ...histories,
+      ])
+
+      // waiting for confirmations
+      await tx.wait()
+      setSnackbarState({ open: true, message: `Transaction confirmed. TXID: ${tx}` })
+      fetchHistory()
+    } catch (ex) {
+      console.log(ex)
+      setSnackbarState({ open: true, message: ex?.message || 'error' })
+    }
   }
 
-  const handleSendErc20OnClick = (address, amount) => async () => {
-    const decimals = await erc20Contract.decimals()
+  const handleSendTokenOnClick = (address, amount) => async () => {
+    const decimals = await tokenContract.decimals()
 
-    erc20Contract
-      .transfer(address, ethers.utils.parseUnits(amount, decimals))
-      .then(({ hash }) => {
-        setSnackbarState({ open: true, message: `Transaction sent. TXID: ${hash}` })
-        setAmount('')
-      })
-      .catch((error) => {
-        console.log('sendTransaction error', error)
-        setSnackbarState({ open: true, message: error?.message })
-      })
+    try {
+      // sending transaction
+      const tx = await tokenContract.transfer(address, ethers.utils.parseUnits(amount, decimals))
+      setSnackbarState({ open: true, message: `Transaction sent. TXID: ${tx.hash}` })
+      setAmount('')
+      setHistories([
+        {
+          date: new Date().toLocaleString('zh-TW'),
+          txid: tx.hash,
+          from: account,
+          to: address,
+          tokenValue: amount,
+          tokenName: TokenState.symbol,
+          isConfirmed: false,
+        },
+        ...histories,
+      ])
+
+      // waiting for confirmations
+      await tx.wait()
+      setSnackbarState({ open: true, message: `Transaction confirmed. TXID: ${tx}` })
+      fetchHistory()
+    } catch (ex) {
+      console.log(ex)
+      setSnackbarState({ open: true, message: ex?.message || 'error' })
+    }
   }
   const handleTabOnChange = (_event, newValue) => setTabValue(newValue)
   const handleSnackbarOnClose = () => setSnackbarState({ open: false, message: '' })
   const handleAddressOnChange = (e) => setAddress(e.target.value)
   const handleAmountOnChange = (e) => setAmount(e.target.value)
-  const handleErc20TokenAddressOnChange = (e) =>
-    setErc20State({ ...erc20State, tokenAddress: e.target.value })
+  const handleTokenAddressOnChange = (e) =>
+    setTokenState({ ...TokenState, tokenAddress: e.target.value })
 
   useEffect(() => {
     if (library) {
       const fetchSigner = async () => {
         setSigner(library.getSigner())
         setBalance(ethers.utils.formatEther(await library.getBalance(account)))
+        fetchHistory()
       }
 
       fetchSigner()
     }
   }, [library, account])
 
+  // fetch erc20 Token
   useEffect(() => {
     if (account && signer) {
-      const fetchErc20Token = async () => {
+      const fetchTokenInfo = async () => {
         try {
-          const erc20 = new ethers.Contract(erc20State.tokenAddress, erc20Abi, signer)
-          const decimals = await erc20.decimals()
-          setErc20Contract(erc20)
-          setErc20State({
-            ...erc20State,
-            symbol: await erc20.symbol(),
-            balance: ethers.utils.formatUnits(await erc20.balanceOf(account), decimals),
+          const contract = new ethers.Contract(TokenState.tokenAddress, erc20Abi, signer)
+          const decimals = await contract.decimals()
+          setTokenContract(contract)
+          setTokenState({
+            ...TokenState,
+            symbol: await contract.symbol(),
+            balance: ethers.utils.formatUnits(await contract.balanceOf(account), decimals),
           })
         } catch (ex) {
-          setErc20State({
-            ...erc20State,
+          setTokenState({
+            ...TokenState,
             symbol: '',
             balance: '',
           })
           console.log('ex', ex)
         }
       }
-      fetchErc20Token()
+      fetchTokenInfo()
     }
-  }, [account, signer, erc20State.tokenAddress])
+  }, [account, signer, TokenState.tokenAddress])
 
   return (
     <div className="App">
       <Navbar account={account} />
-      <Container maxWidth="sm" style={{ paddingTop: 30 }}>
+      <Container maxWidth="md" style={{ paddingTop: 30 }}>
         <Wallet
           account={account}
           active={active}
@@ -153,24 +225,24 @@ function App() {
           />
         )}
         {tabValue === 1 && (
-          <Erc20Form
+          <TokenForm
             address={address}
             amount={amount}
             active={active}
             chainId={chainId}
             handleAddressOnChange={handleAddressOnChange}
             handleAmountOnChange={handleAmountOnChange}
-            erc20State={erc20State}
-            handleErc20TokenAddressOnChange={handleErc20TokenAddressOnChange}
-            handleSendErc20OnClick={handleSendErc20OnClick}
+            TokenState={TokenState}
+            handleTokenAddressOnChange={handleTokenAddressOnChange}
+            handleSendTokenOnClick={handleSendTokenOnClick}
           />
         )}
 
-        <History />
+        <History histories={histories} />
       </Container>
 
       <Snackbar
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         autoHideDuration={5000}
         open={snackbarState.open}
         message={snackbarState.message}

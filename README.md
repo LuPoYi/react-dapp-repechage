@@ -1,7 +1,23 @@
-### TODO
+### 實作功能
 
-- the change of transaction status
-- the transaction histories
+- 錢包
+
+  - metamask
+  - wallet connect 協定
+
+- ETH
+
+  - 取得餘額
+  - 發送
+
+- ERC20
+
+  - 辨識 token address
+  - 取得餘額
+  - 發送
+
+- 發送狀態更新
+- 歷史紀錄
 
 #### Wireframe
 

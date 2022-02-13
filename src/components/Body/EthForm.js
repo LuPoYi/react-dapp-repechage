@@ -23,7 +23,7 @@ const EthForm = ({
   const floatedBalance = parseFloat(balance).toFixed(4)
 
   return (
-    <Card style={{ minWidth: 400, filter: !active && 'blur(2px)', marginBottom: 30 }}>
+    <Card style={{ filter: !active && 'blur(2px)', marginBottom: 30 }}>
       <CardHeader
         title="Send ETH"
         subheader={`${floatedBalance} ETH`}

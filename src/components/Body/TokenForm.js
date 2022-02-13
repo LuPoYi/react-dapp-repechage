@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Button,
   Card,
@@ -10,22 +11,23 @@ import {
 import SendIcon from '@mui/icons-material/Send'
 import { chains } from '../wallet/connectors'
 
-const Erc20Form = ({
+const TokenForm = ({
   address,
   amount,
   active,
   chainId,
   handleAddressOnChange,
   handleAmountOnChange,
-  erc20State,
-  handleErc20TokenAddressOnChange,
-  handleSendErc20OnClick,
+  TokenState,
+  handleTokenAddressOnChange,
+  handleSendTokenOnClick,
 }) => {
-  const { tokenAddress, symbol, balance } = erc20State
+  const { tokenAddress, symbol, balance } = TokenState
   const floatedBalance = parseFloat(balance).toFixed(4)
+  const [isTokenAddressDisable, setIsTokenAddressDisable] = useState(true)
 
   return (
-    <Card style={{ minWidth: 400, filter: !active && 'blur(2px)', marginBottom: 30 }}>
+    <Card style={{ filter: !active && 'blur(2px)', marginBottom: 30 }}>
       <CardHeader
         title={`Send ERC20 ${symbol}`}
         subheader={symbol ? `${floatedBalance} ${symbol}` : 'Invalid token address'}
@@ -39,10 +41,12 @@ const Erc20Form = ({
           placeholder="Erc20 Token Address"
           style={{ marginBottom: 10 }}
           value={tokenAddress}
-          onChange={handleErc20TokenAddressOnChange}
+          onChange={handleTokenAddressOnChange}
           InputProps={{
             endAdornment: <InputAdornment position="end">{symbol || ''}</InputAdornment>,
           }}
+          disabled={isTokenAddressDisable}
+          onClick={() => setIsTokenAddressDisable(false)}
         />
 
         <TextField
@@ -72,7 +76,7 @@ const Erc20Form = ({
           fullWidth
           color="primary"
           variant="contained"
-          onClick={handleSendErc20OnClick(address, amount)}
+          onClick={handleSendTokenOnClick(address, amount)}
           endIcon={<SendIcon />}
           disabled={!symbol}
         >
@@ -83,4 +87,4 @@ const Erc20Form = ({
   )
 }
 
-export default Erc20Form
+export default TokenForm

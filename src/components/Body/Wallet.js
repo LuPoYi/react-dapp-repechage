@@ -5,7 +5,7 @@ import { injected, walletconnect } from '../wallet/connectors'
 
 const Wallet = ({ active, account, handleConnectWalletOnClick, handleDisconnectWalletOnClick }) => {
   return (
-    <Card style={{ minWidth: 400, padding: 10, marginBottom: 15 }}>
+    <Card style={{ padding: 10, marginBottom: 15 }}>
       {!active ? (
         <>
           <Button
@@ -34,6 +34,9 @@ const Wallet = ({ active, account, handleConnectWalletOnClick, handleDisconnectW
           color="secondary"
           variant="contained"
           onClick={handleDisconnectWalletOnClick}
+          style={{
+            wordBreak: 'break-word',
+          }}
         >
           {account}
           <br />

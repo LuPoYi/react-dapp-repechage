@@ -72,6 +72,31 @@ function App() {
     setHistories(processedHistories)
   }
 
+  const fetchBalacne = async () =>
+    setBalance(ethers.utils.formatEther(await library.getBalance(account)))
+
+  const fetchSigner = async () => setSigner(library.getSigner())
+
+  const fetchTokenInfo = async () => {
+    try {
+      const contract = new ethers.Contract(TokenState.tokenAddress, erc20Abi, signer)
+      const decimals = await contract.decimals()
+      setTokenContract(contract)
+      setTokenState({
+        ...TokenState,
+        symbol: await contract.symbol(),
+        balance: ethers.utils.formatUnits(await contract.balanceOf(account), decimals),
+      })
+    } catch (ex) {
+      setTokenState({
+        ...TokenState,
+        symbol: '',
+        balance: '',
+      })
+      console.log('ex', ex)
+    }
+  }
+
   const handleConnectWalletOnClick = (connector) => async () => {
     try {
       await activate(connector)
@@ -112,7 +137,8 @@ function App() {
 
       // waiting for confirmations
       await tx.wait()
-      setSnackbarState({ open: true, message: `Transaction confirmed. TXID: ${tx}` })
+      setSnackbarState({ open: true, message: `Transaction confirmed. TXID: ${tx.hash}` })
+      fetchBalacne()
       fetchHistory()
     } catch (ex) {
       console.log(ex)
@@ -143,8 +169,9 @@ function App() {
 
       // waiting for confirmations
       await tx.wait()
-      setSnackbarState({ open: true, message: `Transaction confirmed. TXID: ${tx}` })
+      setSnackbarState({ open: true, message: `Transaction confirmed. TXID: ${tx.hash}` })
       fetchHistory()
+      fetchTokenInfo()
     } catch (ex) {
       console.log(ex)
       setSnackbarState({ open: true, message: ex?.message || 'error' })
@@ -159,40 +186,15 @@ function App() {
 
   useEffect(() => {
     if (library) {
-      const fetchSigner = async () => {
-        setSigner(library.getSigner())
-        setBalance(ethers.utils.formatEther(await library.getBalance(account)))
-        fetchHistory()
-      }
-
       fetchSigner()
+      fetchBalacne()
+      fetchHistory()
     }
   }, [library, account])
 
   // fetch erc20 Token
   useEffect(() => {
-    if (account && signer) {
-      const fetchTokenInfo = async () => {
-        try {
-          const contract = new ethers.Contract(TokenState.tokenAddress, erc20Abi, signer)
-          const decimals = await contract.decimals()
-          setTokenContract(contract)
-          setTokenState({
-            ...TokenState,
-            symbol: await contract.symbol(),
-            balance: ethers.utils.formatUnits(await contract.balanceOf(account), decimals),
-          })
-        } catch (ex) {
-          setTokenState({
-            ...TokenState,
-            symbol: '',
-            balance: '',
-          })
-          console.log('ex', ex)
-        }
-      }
-      fetchTokenInfo()
-    }
+    if (account && signer) fetchTokenInfo()
   }, [account, signer, TokenState.tokenAddress])
 
   return (
@@ -238,11 +240,11 @@ function App() {
           />
         )}
 
-        <History histories={histories} />
+        <History histories={histories} fetchHistory={() => fetchHistory()} />
       </Container>
 
       <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         autoHideDuration={5000}
         open={snackbarState.open}
         message={snackbarState.message}

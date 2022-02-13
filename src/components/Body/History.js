@@ -8,13 +8,17 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { maskAddress } from '../../utils/helper'
 import { expolorURI } from '../../constants/env'
 
-const History = ({ histories }) => {
+const History = ({ histories, fetchHistory }) => {
   return (
     <Card style={{ marginBottom: 30, background: 'antiquewhite' }}>
-      <CardHeader title="History" />
+      <CardHeader
+        title="History"
+        action={<RefreshIcon style={{ cursor: 'pointer' }} onClick={fetchHistory} />}
+      />
       <CardContent style={{ overflowX: 'auto' }}>
         <Table aria-label="simple table">
           <TableHead>
@@ -51,7 +55,7 @@ const History = ({ histories }) => {
                   <TableCell>{maskAddress(from)}</TableCell>
                   <TableCell>{maskAddress(to)}</TableCell>
                   <TableCell align="right">
-                    {tokenValue === 0 ? `${value} ETH` : `${tokenValue} ${tokenName}`}
+                    {tokenValue ? `${tokenValue} ${tokenName}` : `${value} ETH`}
                   </TableCell>
                   <TableCell align="right">{isConfirmed ? 'OK' : 'Pending'}</TableCell>
                 </TableRow>

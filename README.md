@@ -19,6 +19,10 @@
 - 發送狀態更新
 - 歷史紀錄
 
-#### Wireframe
+### Wireframe
 
 <img src="wireframe.jpeg" width="500" />
+
+### Screenshot
+
+<img src="screenshot.png" width="500" />
